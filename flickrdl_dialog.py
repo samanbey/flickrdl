@@ -74,6 +74,7 @@ class FlickrdlDialog(QtWidgets.QDialog, FORM_CLASS):
             self.teLog.clear()
             # get values from ui
             key=self.leApiKey.text()
+            # key="ee27f5b7187c0c765d3c81f32b5488ee"
             dbFile=self.fwDBFile.filePath()
             tblName=self.leTblName.text()
             initialBB=[self.leWLon.text(),self.leSLat.text(),self.leELon.text(),self.leNLat.text()]
@@ -147,8 +148,9 @@ class WorkerThread( QThread ):
         # create table
         cur.execute("drop table if exists "+tblName) 
         self.addMsg.emit("old table dropped if there was one")
-        cur.execute("create table "+tblName+" (p_id integer primary key autoincrement, lat real, lon real, o_id text, p_date text, accuracy int, title text, tags text, url text, pt geometry)")        
+        cur.execute("create table "+tblName+" (p_id integer primary key autoincrement, lat real, lon real, o_id text, p_date text, accuracy int, title text, tags text, url text)")        
         self.addMsg.emit(tblName+" table created")
+        cur.execute("select AddGeometryColumn('"+tblName+"', 'geom', 4326, 'POINT', 'XY');")
                   
         # fifo list of bboxes to get
         bboxes=deque()
@@ -166,7 +168,7 @@ class WorkerThread( QThread ):
         
         # push photo data do DB
         def pushData(data):
-            q="replace into "+tblName+" (p_id,lat,lon,o_id,p_date,accuracy,title,tags,url,pt) values "
+            q="replace into "+tblName+" (p_id,lat,lon,o_id,p_date,accuracy,title,tags,url,geom) values "
             qv=''
             for p in data['photos']['photo']:
                 if p['latitude']!=0 and p['longitude']!=0:
@@ -178,6 +180,7 @@ class WorkerThread( QThread ):
                 self.addMsg.emit('page '+str(pg)+' from '+str(pages)+' inserted')
                 # get number of records for setting progress bar
                 res=cur.execute("select count(*) from "+tblName) 
+                con.commit()
                 self.setProgress.emit(res.fetchone()[0])
                 
         # put initial bbox into queue
@@ -227,6 +230,8 @@ class WorkerThread( QThread ):
                     pg=data['photos']['page']
                     pushData(data)
         # finished
+        # cur.execute("SELECT CreateIsoMetadataTables();")
+        # con.commit()
         self.addMsg.emit("I think it's ready...")    
         return True
         
