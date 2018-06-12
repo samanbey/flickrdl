@@ -1,23 +1,19 @@
-# This file contains metadata for your plugin. Since 
-# version 2.0 of QGIS this is the proper way to supply 
-# information about a plugin. The old method of 
-# embedding metadata in __init__.py will 
-# is no longer supported since version 2.0.
-
-# This file should be included when you package your plugin.# Mandatory items:
+# Mandatory items:
 
 [general]
 name=Flickr Metadata Downloader
 qgisMinimumVersion=3.0
 description=This plugin helps downloading metadata of geotagged Flickr photos
-version=0.1
+version=0.3
 author=Mátyás Gede
 email=saman@map.elte.hu
 
-about=This plugin helps downloading metadata of geotagged Flickr photos
+about=This plugin helps downloading metadata of geotagged public Flickr photos of within a given geographic quadrangle.
+    Metadata includes geographic position, user ID, date, tags and the URL of a small thumbnail image as well.
+    The downloaded data is stored in a Spatialite database file.
 
-tracker=http://bugs
-repository=http://repo
+tracker=https://github.com/samanbey/flickrdl/issues
+repository=https://github.com/samanbey/flickrdl
 # End of mandatory metadata
 
 # Recommended items:
@@ -26,9 +22,9 @@ repository=http://repo
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python
+tags=python,Flickr,geotagged
 
-homepage=http://homepage
+homepage=https://github.com/samanbey/flickrdl
 category=Plugins
 icon=icon.png
 # experimental flag
