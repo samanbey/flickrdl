@@ -1,3 +1,5 @@
+<img align="right" src="icon.png" />
+
 # flickrdl
 Flickr geotagged photo metadata downloader plugin for QGIS 3
 
@@ -14,6 +16,7 @@ https://www.flickr.com/services/api/misc.api_keys.html
 ## Usage
 - (Obtain a Flickr API key)
 - (Create a Spatialite database file in QGIS)
-- Start the plugin. Select the database file, set the API key, change the table name (if you want)
+- Start the plugin from Web menu. Select the database file, set the API key, change the table name (if you want)
 - Set the bounding latitudes/longuitudes of the area to download
 - Press "Start"
+- The result is a new Spatialite table with point geometries

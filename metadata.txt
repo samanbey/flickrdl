@@ -11,6 +11,7 @@ email=saman@map.elte.hu
 about=This plugin helps downloading metadata of geotagged public Flickr photos of within a given geographic quadrangle.
     Metadata includes geographic position, user ID, date, tags and the URL of a small thumbnail image as well.
     The downloaded data is stored in a Spatialite database file.
+    A free Flickr API key is required to use this plugin
 
 tracker=https://github.com/samanbey/flickrdl/issues
 repository=https://github.com/samanbey/flickrdl
@@ -24,7 +25,7 @@ repository=https://github.com/samanbey/flickrdl
 # Tags are comma separated with spaces allowed
 tags=python,Flickr,geotagged
 
-homepage=https://github.com/samanbey/flickrdl
+homepage=http://samanbey.github.io/czml_generator/ 
 category=Plugins
 icon=icon.png
 # experimental flag
