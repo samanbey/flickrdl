@@ -53,10 +53,12 @@ class FlickrdlDialog(QtWidgets.QDialog, FORM_CLASS):
         self.pbStart.clicked.connect(self.startDlThread) # Start button
         self.pbClose.clicked.connect(self.close) # Close button
         self.pbHelp.clicked.connect(self.help) # Close button
+        self.WT=None
     
     def close(self):
         """Close dialog"""
-        self.WT.stop()
+        if self.WT is not None:
+            self.WT.stop()
         self.reject()
     
     def help(self):

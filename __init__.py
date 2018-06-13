@@ -26,7 +26,7 @@
 
 # noinspection PyPep8Naming
 def classFactory(iface):  # pylint: disable=invalid-name
-    """Load Flickdl class from file Flickdl.
+    """Load Flickrdl class from file Flickrdl.
 
     :param iface: A QGIS interface instance.
     :type iface: QgsInterface

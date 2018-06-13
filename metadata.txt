@@ -26,7 +26,7 @@ repository=https://github.com/samanbey/flickrdl
 tags=python,Flickr,geotagged
 
 homepage=http://samanbey.github.io/czml_generator/ 
-category=Plugins
+category=Web
 icon=icon.png
 # experimental flag
 experimental=True
