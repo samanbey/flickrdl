@@ -29,6 +29,7 @@ from PyQt5.QtWidgets import QAction, QMessageBox, QWidget
 from .resources import *
 # Import the code for the dialog
 from .flickrdl_dialog import FlickrdlDialog
+from .user_and_iv_dialog import UserAndIvDialog
 import os.path
 
 
@@ -63,6 +64,7 @@ class Flickrdl:
 
         # Create the dialog (after translation) and keep reference
         self.dlg = FlickrdlDialog()
+        self.CUITdlg = UserAndIvDialog()
 
         # Declare instance attributes
         self.actions = []
@@ -169,6 +171,12 @@ class Flickrdl:
             text=self.tr(u'Flickr Metadata Downloader'),
             callback=self.run,
             parent=self.iface.mainWindow())
+        self.add_action(
+            icon_path,
+            text=self.tr(u'Create user and interval tables'),
+            callback=self.runCUIT,
+            parent=self.iface.mainWindow(),
+            add_to_toolbar=False)
 
 
     def unload(self):
@@ -193,3 +201,11 @@ class Flickrdl:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
             print("OK")
+            
+    def runCUIT(self):
+        """Show create users... dialog"""
+        # show the dialog
+        self.CUITdlg.show()
+        # Run the dialog event loop
+        result = self.CUITdlg.exec_()
+            

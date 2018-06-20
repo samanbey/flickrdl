@@ -4,11 +4,11 @@
 name=Flickr Metadata Downloader
 qgisMinimumVersion=3.0
 description=This plugin helps downloading metadata of geotagged Flickr photos
-version=0.3
+version=0.4
 author=Mátyás Gede
 email=saman@map.elte.hu
 
-about=This plugin helps downloading metadata of geotagged public Flickr photos of within a given geographic quadrangle.
+about=This plugin helps downloading metadata of geotagged public Flickr photos within a given geographic quadrangle.
     Metadata includes geographic position, user ID, date, tags and the URL of a small thumbnail image as well.
     The downloaded data is stored in a Spatialite database file.
     A free Flickr API key is required to use this plugin
@@ -20,12 +20,13 @@ repository=https://github.com/samanbey/flickrdl
 # Recommended items:
 
 # Uncomment the following line and add your changelog:
-# changelog=
+changelog=0.3 - first public version
+0.4 - interval analysis function added
 
 # Tags are comma separated with spaces allowed
 tags=python,Flickr,geotagged
 
-homepage=http://samanbey.github.io/czml_generator/ 
+homepage=http://samanbey.github.io/flickrdl
 category=Web
 icon=icon.png
 # experimental flag

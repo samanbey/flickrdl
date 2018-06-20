@@ -153,6 +153,7 @@ class WorkerThread( QThread ):
         cur.execute("create table "+tblName+" (p_id integer primary key autoincrement, lat real, lon real, o_id text, p_date text, accuracy int, title text, tags text, url text)")        
         self.addMsg.emit(tblName+" table created")
         cur.execute("select AddGeometryColumn('"+tblName+"', 'geom', 4326, 'POINT', 'XY');")
+        cur.execute("select CreateSpatialIndex('"+tblName+"', 'geom');")
                   
         # fifo list of bboxes to get
         bboxes=deque()
@@ -173,7 +174,8 @@ class WorkerThread( QThread ):
             q="replace into "+tblName+" (p_id,lat,lon,o_id,p_date,accuracy,title,tags,url,geom) values "
             qv=''
             for p in data['photos']['photo']:
-                if p['latitude']!=0 and p['longitude']!=0:
+                k=p.keys()
+                if p['latitude']!=0 and p['longitude']!=0 and 'id' in k and 'owner' in k and 'datetaken' in k and 'accuracy' in k and 'title' in k and 'tags' in k and 'url_s' in k:
                     if qv!='':
                         qv+=','
                     qv+='('+p['id']+','+p['latitude']+','+p['longitude']+",'"+p['owner']+"','"+p['datetaken']+"',"+p['accuracy']+",'"+escquotes(p['title'])+"','"+escquotes(p['tags'])+"','"+escquotes(p['url_s'])+"',PointFromText('point("+p['longitude']+' '+p['latitude']+")',4326))"
