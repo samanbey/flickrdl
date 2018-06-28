@@ -33,6 +33,7 @@ from PyQt5.QtCore import *
 from PyQt5 import QtSql
 from PyQt5.QtSql import *
 from collections import deque
+from datetime import *
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'flickrdl_dialog_base.ui'))
@@ -62,6 +63,7 @@ class FlickrdlDialog(QtWidgets.QDialog, FORM_CLASS):
         self.reject()
     
     def help(self):
+        """Help 'dialog'"""
         QMessageBox.information(self,"Help",'This plugin requires a Flickr API key.<br/> Please obtain a key at <br/>'+
             '<a href="https://www.flickr.com/services/api/misc.api_keys.html">https://www.flickr.com/services/api/misc.api_keys.html</a>'+
             '<h3>Usage</h3>Create a Spatialite database file. Select the database file, and set the bounding latitudes/longitudes of the area to download, '+
@@ -69,17 +71,59 @@ class FlickrdlDialog(QtWidgets.QDialog, FORM_CLASS):
         
     def startDlThread(self):
         """Starts downloading thread"""
+        
+        # return to lat/lon boxes if number is not valid
+        def numberError(le):
+            QMessageBox.warning(self,"Error","Enter a valid number here")
+            le.setFocus()
+            le.selectAll()
+            
         if self.pbStart.text()=="Start":
+            # get values from ui
+            key=self.leApiKey.text()
+            if key=="tudod":
+                key="ee27f5b7187c0c765d3c81f32b5488ee"
+                self.leApiKey.setText(key)
+                # this is the key for testing :)
+            dbFile=self.fwDBFile.filePath()
+            tblName=self.leTblName.text()
+            # check BBox lats/lons
+            N=self.leNLat.text()
+            try:
+                nv=float(N)
+            except ValueError:
+                numberError(self.leNLat)
+                return
+            S=self.leSLat.text()
+            try:
+                sv=float(S)
+            except ValueError:
+                numberError(self.leSLat)
+                return
+            W=self.leWLon.text()
+            try:
+                wv=float(W)
+            except ValueError:
+                numberError(self.leWLon)
+                return
+            E=self.leELon.text()
+            try:
+                ev=float(E)
+            except ValueError:
+                numberError(self.leELon)
+                return
+            
+            # swap values if necessary
+            if nv<sv:
+                x=N;N=S;S=x
+            if ev<wv:
+                x=E;E=W;W=x
+            
+            initialBB=[W,S,E,N]
             # change button text to stop
             self.pbStart.setText("Stop");
             # clear log box
             self.teLog.clear()
-            # get values from ui
-            key=self.leApiKey.text()
-            # key="ee27f5b7187c0c765d3c81f32b5488ee"
-            dbFile=self.fwDBFile.filePath()
-            tblName=self.leTblName.text()
-            initialBB=[self.leWLon.text(),self.leSLat.text(),self.leELon.text(),self.leNLat.text()]
             # create and start thread
             self.WT=WorkerThread(qgis.utils.iface.mainWindow(),key,dbFile,tblName,initialBB)
             self.WT.jobFinished.connect(self.jobFinishedFromThread)
@@ -113,7 +157,7 @@ class WorkerThread( QThread ):
     jobFinished=pyqtSignal(bool)
     setTotal=pyqtSignal(str)
     setProgress=pyqtSignal(int)
-    
+       
     def __init__( self, parentThread,key,dbFile,tblName,initialBB):
         QThread.__init__( self, parentThread )
         self.key=key
@@ -133,6 +177,9 @@ class WorkerThread( QThread ):
         dbFile=self.dbFile
         tblName=self.tblName
         initialBB=self.initialBB
+        # minimum date (2000-01-01) and current time (may be required for temporal division)
+        minDate=datetime(2000,1,1)
+        maxDate=datetime.now()
         # check key validity
         self.addMsg.emit('Checking connection to Flickr API...')
         url='https://api.flickr.com/services/rest/?api_key='+key+'&method=flickr.test.echo&format=json&nojsoncallback=1'
@@ -167,7 +214,17 @@ class WorkerThread( QThread ):
         def getPage(bbx,page):
             bbox=bbx[0]+','+bbx[1]+','+bbx[2]+','+bbx[3]
             url='https://api.flickr.com/services/rest/?api_key='+key+'&method=flickr.photos.search&bbox='+bbox+'&accuracy=1&format=json&nojsoncallback=1&page='+str(page)+'&perpage=250&extras=geo%2Cdate_taken%2Ctags%2Curl_s'
-            return requests.get(url).json();
+            if len(bbx)==6:
+                # bbox contains datetime limits
+                d1=bbx[4]
+                d2=bbx[5]
+                url+='&min_taken_date='+d1+'&max_taken_date='+d2
+            r=requests.get(url)
+            try:
+                j=r.json()
+                return r.json()
+            except Exception as e:
+                return {'stat':'fail','message':'error in response: '+r.text}
         
         # push photo data do DB
         def pushData(data):
@@ -198,6 +255,7 @@ class WorkerThread( QThread ):
             if not self.running:
                 return False
             bb=bboxes.popleft() # next bbox to download
+            self.addMsg.emit("next BBox: "+str(bb))
             pp=1 # start with first page
             data=getPage(bb,pp)
             # if there is a problem...
@@ -213,13 +271,31 @@ class WorkerThread( QThread ):
                 self.setTotal.emit(data['photos']['total'])
             if pages>16:
                 # too much data, dividing bbox
-                self.addMsg.emit(str(pages)+" pages, dividing...")
-                mlon=str((float(bb[0])+float(bb[2]))/2)
-                mlat=str((float(bb[1])+float(bb[3]))/2)
-                bboxes.append([bb[0],bb[1],mlon,mlat]);
-                bboxes.append([mlon,bb[1],bb[2],mlat]);
-                bboxes.append([bb[0],mlat,mlon,bb[3]]);
-                bboxes.append([mlon,mlat,bb[2],bb[3]]);
+                # TODO: skip data when too much photos at the same time and space (when dividing does not help)
+                if (float(bb[2])-float(bb[0])>1e-4) and (float(bb[2])-float(bb[0])>1e-4):
+                    # bbox big enough to divide
+                    self.addMsg.emit(str(pages)+" pages, dividing...")
+                    mlon=str((float(bb[0])+float(bb[2]))/2)
+                    mlat=str((float(bb[1])+float(bb[3]))/2)
+                    bboxes.append([bb[0],bb[1],mlon,mlat]);
+                    bboxes.append([mlon,bb[1],bb[2],mlat]);
+                    bboxes.append([bb[0],mlat,mlon,bb[3]]);
+                    bboxes.append([mlon,mlat,bb[2],bb[3]]);
+                else:
+                    # bbox too small - temporal division
+                    if len(bb)==6:
+                        # bbox contains datetime limits
+                        d1=datetime.fromisoformat(bb[4])
+                        d2=datetime.fromisoformat(bb[5])
+                    else:
+                        # using global date limits
+                        d1=minDate
+                        d2=maxDate
+                    d3=datetime.fromtimestamp((d1.timestamp()+d2.timestamp())/2)
+                    bboxes.append([bb[0],bb[1],bb[2],bb[3],d1,d3]);
+                    bboxes.append([bb[0],bb[1],bb[2],bb[3],d3,d2]);
+                    self.addMsg.emit("temporal division: "+str(d1)+" - "+str(d3)+" - "+str(d2))
+                    
             else:
                 # push first page
                 pushData(data)
