@@ -1,6 +1,6 @@
 <img align="right" src="icon.png" />
 
-# flickrdl
+# Flickr Metadata Downloader
 Flickr geotagged photo metadata downloader plugin for QGIS 3
 
 This plugin lets you to download the metadata of geotagged public photographs in Flickr of a given geographic quadrangle (defined by boundary latitudes/longitudes).

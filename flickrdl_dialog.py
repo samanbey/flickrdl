@@ -220,6 +220,8 @@ class WorkerThread( QThread ):
                 d2=bbx[5]
                 url+='&min_taken_date='+d1+'&max_taken_date='+d2
             r=requests.get(url)
+            if r.status_code!=200:
+                return {'stat':'fail','message':'http status: '+str(r.status_code)+' '+r.reason}
             try:
                 j=r.json()
                 return r.json()
@@ -268,7 +270,7 @@ class WorkerThread( QThread ):
             pg=data['photos']['page']
             if first:
                 first=False
-                self.setTotal.emit(data['photos']['total'])
+                self.setTotal.emit(str(data['photos']['total']))
             if pages>16:
                 # too much data, dividing bbox
                 # TODO: skip data when too much photos at the same time and space (when dividing does not help)
@@ -285,16 +287,19 @@ class WorkerThread( QThread ):
                     # bbox too small - temporal division
                     if len(bb)==6:
                         # bbox contains datetime limits
-                        d1=datetime.fromisoformat(bb[4])
-                        d2=datetime.fromisoformat(bb[5])
+                        d1=datetime.strptime((bb[4]),'%Y-%m-%d %H:%M:%S')
+                        d2=datetime.strptime((bb[5]),'%Y-%m-%d %H:%M:%S')
                     else:
                         # using global date limits
                         d1=minDate
                         d2=maxDate
                     d3=datetime.fromtimestamp((d1.timestamp()+d2.timestamp())/2)
-                    bboxes.append([bb[0],bb[1],bb[2],bb[3],d1,d3]);
-                    bboxes.append([bb[0],bb[1],bb[2],bb[3],d3,d2]);
-                    self.addMsg.emit("temporal division: "+str(d1)+" - "+str(d3)+" - "+str(d2))
+                    d1s=d1.strftime('%Y-%m-%d %H:%M:%S')
+                    d2s=d2.strftime('%Y-%m-%d %H:%M:%S')
+                    d3s=d3.strftime('%Y-%m-%d %H:%M:%S')
+                    bboxes.append([bb[0],bb[1],bb[2],bb[3],d1s,d3s]);
+                    bboxes.append([bb[0],bb[1],bb[2],bb[3],d3s,d2s]);
+                    self.addMsg.emit("temporal division: "+d1s+" - "+d3s+" - "+d2s)
                     
             else:
                 # push first page
@@ -306,6 +311,9 @@ class WorkerThread( QThread ):
                         return False
                     pp+=1
                     data=getPage(bb,pp)
+                    while not 'photos' in data.keys():
+                        self.addMsg.emit("we have problem: "+data['message']+" - retrying...")
+                        data=getPage(bb,pp)
                     pages=data['photos']['pages']
                     pg=data['photos']['page']
                     pushData(data)
