@@ -8,8 +8,8 @@
                              -------------------
         begin                : 2018-06-04
         git sha              : $Format:%H$
-        copyright            : (C) 2018 by Mátyás Gede
-        email                : saman@map.elte.hu
+        copyright            : (C) 2018-2026 by Mátyás Gede
+        email                : gedematyas@inf.elte.hu
  ***************************************************************************/
 
 /***************************************************************************
@@ -27,7 +27,7 @@ import qgis.utils
 
 from PyQt5 import uic
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QAction, QMessageBox, QWidget
+from PyQt5.QtWidgets import QAction, QMessageBox, QWidget, QApplication
 from PyQt5.QtCore import *
 from PyQt5 import QtSql
 from PyQt5.QtSql import *
@@ -72,8 +72,9 @@ class UserAndIvDialog(QtWidgets.QDialog, FORM_CLASS):
         # create and start thread
         self.WT=WorkerThread(qgis.utils.iface.mainWindow(), params)
         self.WT.jobFinished.connect(self.jobFinishedFromThread)
-        #self.WT.setTotal.connect(self.setTotal)
-        #self.WT.setProgress.connect(self.setProgress)
+        self.WT.setTotal.connect(self.setTotal)
+        self.WT.setProgress.connect(self.setProgress)
+        self.WT.message.connect(self.message)
         self.WT.start()
         
         
@@ -95,7 +96,11 @@ class UserAndIvDialog(QtWidgets.QDialog, FORM_CLASS):
         self.cbTable.clear()
         for t in ts:
             self.cbTable.addItem(t[0])
+        # set progress bar to zero
+        self.progressBar.setValue(0)
+            
     def setUITblNames(self):
+        """Set further table names when photos table selected"""
         pt=self.cbTable.currentText()
         if pt.startswith('photos_'):
             tn=pt[7:]
@@ -104,21 +109,28 @@ class UserAndIvDialog(QtWidgets.QDialog, FORM_CLASS):
         self.leUTable.setText('users_'+tn)
         self.leITable.setText('intervals_'+tn)
     
-    def jobFinishedFromThread( self, success ):
+    def jobFinishedFromThread(self, success):
         self.progressBar.setValue(self.progressBar.maximum())
         self.WT.stop()
 
-    def setTotal( self, total ):
+    def setTotal(self, total):
         self.progressBar.setMaximum(total)
         
-    def setProgress( self, p ):
+    def setProgress(self, p):
         self.progressBar.setValue(p)
+        
+    def message(self, title, text, error=False):
+        if error:
+            QMessageBox.warning(self, title, text)
+        else:
+            QMessageBox.information(self, title, text)
 
-class WorkerThread( QThread ):
+class WorkerThread(QThread):
     # signals
     jobFinished=pyqtSignal(bool)
     setTotal=pyqtSignal(int)
     setProgress=pyqtSignal(int)
+    message=pyqtSignal(str, str, bool)
     
     def __init__( self, parentThread, params):
         QThread.__init__( self, parentThread )
@@ -143,80 +155,107 @@ class WorkerThread( QThread ):
             dd2=datetime.strptime(d2,"%Y-%m-%d").date()
             return (dd2-dd1).days;
         
+        #print("table names:", pt, ut, it)
         # set progress bar to 0
         self.setProgress.emit(0)
+        QApplication.processEvents()
         # connect DB
-        con=qgis.utils.spatialite_connect(dbFile)
-        cur=con.cursor()
-        # create user table
-        cur.execute("drop table if exists "+ut)
-        #QMessageBox.information(self,"Status",'user table dropped');
-        cur.execute("create table "+ut+" as select o_id, 0 as is_local, count(*) as photocount from "+pt+" group by 1 order by 2 desc")
-        #QMessageBox.information(self,"Status",'user table created');
-        # create intervals
-        cur.execute("drop table if exists "+it)
-        #QMessageBox.information(self,"Status",'iv table dropped');
-        cur.execute("create table "+it+" (o_id integer, ord integer, d1 text, d2 text, type text)")
-        #QMessageBox.information(self,"Status",'iv table created');
-        cur.execute("select distinct o_id, date(p_date) from "+pt+" order by 1,2")
-        values=""
-        self.setTotal.emit(cur.rowcount)
-        cnt=0
-        p=cur.fetchone()
-        cnt+=1
-        if p is None:
-            # empty table...
-            return False
-        oid,d1=p
-        d2=d1
-        n=0
-        while p is not None:
-            if (ddiff(p[1],d2)>ivth) or (oid!=p[0]):
-                # new interval begins, store the previous
-                if ddiff(d2,d1)<shortMax:
-                    itype="short"
-                elif ddiff(d2,d1)<longMin-1:
-                    itype="medium"
-                else:
-                    itype="long"
-                if values!="":
-                    values+=","
-                values+="('"+oid+"',"+str(n)+",'"+d1+"','"+d2+"','"+itype+"')"
-                if (oid==p[0]):
-                    n+=1
-                else:
-                    #print(oid+": "+str(n))
-                    n=0
-                oid,d1=p
-                d2=d1
-                self.setProgress.emit(cnt)
-            else:
-                d2=p[1]
-            p=cur.fetchone()
+        try:
+            con=qgis.utils.spatialite_connect(dbFile)
+            cur=con.cursor()
+            # create user table
+            cur.execute("drop table if exists "+ut)
+            cur.execute("create table "+ut+" as select o_id, 0 as is_local, count(*) as photocount from "+pt+" group by 1 order by 2 desc")
+            # create intervals
+            cur.execute("drop table if exists "+it)
+            cur.execute("create table "+it+" (o_id integer, ord integer, d1 text, d2 text, type text)")
+            cur.execute("create index o_id_index on "+it+" (o_id)")
+            print("tables created");
+            cur.execute("select count(distinct o_id||'_'||date(p_date)) as cnt from "+pt+" where substring(p_date,1,4)!='0000'")
+            pp=cur.fetchone()
+            pcount=pp[0]
+            print(pcount, 'distinct (user, date) pairs')
+            cur2=con.cursor() # we need another cursor because interval table inserts are done parallelly with select result processing
+            cur2.execute("select distinct o_id, date(p_date) from "+pt+" where substring(p_date,1,4)!='0000' order by 1,2")
+            values=""
+            self.setTotal.emit(pcount)
+            
+            cnt=0
+            ivcnt=0
+            p=cur2.fetchone()
             cnt+=1
-        # store last interval
-        if ddiff(d2,d1)<shortMax:
-            itype="short"
-        elif ddiff(d2,d1)<longMin-1:
-            itype="medium"
-        else:
-            itype="long"
-        if values!="":
-            values+=","
-        values+="('"+oid+"',"+str(n)+",'"+d1+"','"+d2+"','"+itype+"')"
-        cur.execute("insert into "+it+" (o_id,ord,d1,d2,type) values "+values)
-        # set local users
-        cur.execute("update "+ut+" set is_local=1 where o_id in (select distinct o_id from "+it+" where ord>="+str(localMin)+" or julianday(d2)-julianday(d1)>="+str(localILength-1)+")")
-        # set local intervals
-        cur.execute("update "+it+" set type='local' where o_id in (select o_id from "+ut+" where is_local)")
-        # create ivtype column if not exists
-        cur.execute("select 1 from pragma_table_info('"+pt+"') where name='ivtype'")
-        if cur.fetchone() is None:
-            cur.execute("alter table "+pt+" add column ivtype text;")
-        # set iv type for photos
-        cur.execute("update "+pt+" set ivtype=(select type from "+it+" i where i.o_id="+pt+".o_id and date(p_date) between date(d1) and date(d2))")
-        # final commit
-        con.commit()  
+            if p is None:
+                # empty table...
+                return False
+            oid,d1=p
+            d2=d1
+            n=0
+            while p is not None:
+                if (ddiff(p[1],d2)>ivth) or (oid!=p[0]):
+                    # new interval begins, store the previous
+                    if ddiff(d2,d1)<shortMax:
+                        itype="short"
+                    elif ddiff(d2,d1)<longMin-1:
+                        itype="medium"
+                    else:
+                        itype="long"
+                    if values!="":
+                        values+=","
+                    values="('"+oid+"',"+str(n)+",'"+d1+"','"+d2+"','"+itype+"')"
+                    cur.execute("insert into "+it+" (o_id,ord,d1,d2,type) values "+values)
+                    ivcnt+=1
+                    if (oid==p[0]):
+                        n+=1
+                    else:
+                        n=0
+                    oid,d1=p
+                    d2=d1
+                else:
+                    d2=p[1]
+                p=cur2.fetchone()
+                cnt+=1
+                if cnt%100==0:
+                    # updating progress bar at every 100th user/date pair
+                    self.setProgress.emit(cnt)
+                    QApplication.processEvents()
+                    
+            # print(ivcnt, 'intervals created')
+            # store last interval
+            if ddiff(d2,d1)<shortMax:
+                itype="short"
+            elif ddiff(d2,d1)<longMin-1:
+                itype="medium"
+            else:
+                itype="long"
+            if values!="":
+                values+=","
+            # former: values+="('"+oid+"',"+str(n)+",'"+d1+"','"+d2+"','"+itype+"')"
+            values="('"+oid+"',"+str(n)+",'"+d1+"','"+d2+"','"+itype+"')"
+            cur.execute("insert into "+it+" (o_id,ord,d1,d2,type) values "+values)
+            # commit intervals
+            con.commit()
+            print("intervals committed")
+            # set local users
+            cur.execute("update "+ut+" set is_local=1 where o_id in (select distinct o_id from "+it+" where ord>="+str(localMin)+" or julianday(d2)-julianday(d1)>="+str(localILength-1)+")")
+            con.commit()
+            print("users local status updated")
+            # set local intervals
+            cur.execute("update "+it+" set type='local' where o_id in (select o_id from "+ut+" where is_local)")
+            con.commit()
+            print("intervals local status updated")
+            # create ivtype column if not exists
+            cur.execute("select 1 from pragma_table_info('"+pt+"') where name='ivtype'")
+            if cur.fetchone() is None:
+                cur.execute("alter table "+pt+" add column ivtype text;")
+            # set iv type for photos
+            cur.execute("update "+pt+" set ivtype=(select type from "+it+" i where i.o_id="+pt+".o_id and date(p_date) between date(d1) and date(d2))")
+            # final commit
+            con.commit()
+            print("photos local status updated")
+            self.message.emit("Job finished", "Intervals created, photos status updated", False)
+        except Exception as e:
+            self.message.emit("Error", str(e), True)
+            return False
         return True
             
         

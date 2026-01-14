@@ -8,8 +8,8 @@
                               -------------------
         begin                : 2018-06-04
         git sha              : $Format:%H$
-        copyright            : (C) 2018 by Mátyás Gede
-        email                : saman@map.elte.hu
+        copyright            : (C) 2018-2026 by Mátyás Gede
+        email                : gedematyas@inf.elte.hu
  ***************************************************************************/
 
 /***************************************************************************
