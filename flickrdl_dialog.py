@@ -34,6 +34,9 @@ from PyQt5 import QtSql
 from PyQt5.QtSql import *
 from collections import deque
 from datetime import *
+from qgis.gui import QgsMapToolExtent
+from qgis.utils import iface
+from qgis.core import QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsProject
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'flickrdl_dialog_base.ui'))
@@ -50,11 +53,14 @@ class FlickrdlDialog(QtWidgets.QDialog, FORM_CLASS):
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
         self.fwDBFile.setFilter("SQLite files (*.sqlite)")
+        self.fwDBFile.setConfirmOverwrite(False)
         # event handlers
         self.pbStart.clicked.connect(self.startDlThread) # Start button
         self.pbClose.clicked.connect(self.close) # Close button
-        self.pbHelp.clicked.connect(self.help) # Close button
+        self.pbHelp.clicked.connect(self.help) # Help button
+        self.pbMarkArea.clicked.connect(self.markArea) # Mark area on canvas button
         self.WT=None
+        self.setWindowFlags(Qt.WindowStaysOnTopHint) # keep dialog on top
     
     def close(self):
         """Close dialog"""
@@ -68,6 +74,25 @@ class FlickrdlDialog(QtWidgets.QDialog, FORM_CLASS):
             '<a href="https://www.flickr.com/services/api/misc.api_keys.html">https://www.flickr.com/services/api/misc.api_keys.html</a>'+
             '<h3>Usage</h3>Create a Spatialite database file. Select the database file, and set the bounding latitudes/longitudes of the area to download, '+
             'then press "Start".<br/>Depending on the number of photos in the area, download may take several minutes.')
+        
+    def markArea(self):
+        """Mark area on map canvas"""
+        QMessageBox.information(self,"Information",'Mark the area to download on the map canvas')
+        tool = QgsMapToolExtent(iface.mapCanvas())
+        def handle_rect(rect):
+            # This function runs after the user finishes drawing
+            sourceCrs=iface.mapCanvas().mapSettings().destinationCrs()
+            destCrs=QgsCoordinateReferenceSystem('EPSG:4326')
+            xform = QgsCoordinateTransform(sourceCrs, destCrs, QgsProject.instance())
+            rectLL=xform.transform(rect)
+            self.leNLat.setText('%.5f'%(rectLL.yMaximum()));
+            self.leSLat.setText('%.5f'%(rectLL.yMinimum()));
+            self.leWLon.setText('%.5f'%(rectLL.xMinimum()));
+            self.leELon.setText('%.5f'%(rectLL.xMaximum()));
+            tool.clearRubberBand()
+            self.setFocus()
+        tool.extentChanged.connect(handle_rect)
+        iface.mapCanvas().setMapTool(tool)
         
     def startDlThread(self):
         """Starts downloading thread"""
@@ -193,6 +218,15 @@ class WorkerThread( QThread ):
         # connect to spatialite
         con=qgis.utils.spatialite_connect(dbFile)
         cur=con.cursor()
+        
+        # check if it is a new sqlite db without spatialite initialized
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' and name='spatial_ref_sys'")
+        if cur.fetchone():
+            self.addMsg.emit("spatialite already initialized")
+        else:
+            self.addMsg.emit("initializing spatialite (might take a while)...")
+            cur.execute("select InitSpatialMetaData(1,'WGS84')")
+            self.addMsg.emit("spatialite ready")
         
         # create table
         cur.execute("drop table if exists "+tblName) 

@@ -169,7 +169,7 @@ class WorkerThread(QThread):
             # create intervals
             cur.execute("drop table if exists "+it)
             cur.execute("create table "+it+" (o_id integer, ord integer, d1 text, d2 text, type text)")
-            cur.execute("create index o_id_index on "+it+" (o_id)")
+            cur.execute("create index if not exists o_id_index on "+it+" (o_id)")
             print("tables created");
             cur.execute("select count(distinct o_id||'_'||date(p_date)) as cnt from "+pt+" where substring(p_date,1,4)!='0000'")
             pp=cur.fetchone()
@@ -249,6 +249,7 @@ class WorkerThread(QThread):
                 cur.execute("alter table "+pt+" add column ivtype text;")
             # set iv type for photos
             cur.execute("update "+pt+" set ivtype=(select type from "+it+" i where i.o_id="+pt+".o_id and date(p_date) between date(d1) and date(d2))")
+            cur.execute("SELECT UpdateLayerStatistics('"+pt+"')");
             # final commit
             con.commit()
             print("photos local status updated")

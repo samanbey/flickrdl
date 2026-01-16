@@ -60,7 +60,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>60</y>
+     <y>62</y>
      <width>31</width>
      <height>16</height>
     </rect>
@@ -73,7 +73,7 @@
    <property name="geometry">
     <rect>
      <x>40</x>
-     <y>60</y>
+     <y>62</y>
      <width>61</width>
      <height>20</height>
     </rect>
@@ -112,7 +112,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>120</y>
+     <y>118</y>
      <width>31</width>
      <height>16</height>
     </rect>
@@ -125,7 +125,7 @@
    <property name="geometry">
     <rect>
      <x>40</x>
-     <y>120</y>
+     <y>118</y>
      <width>61</width>
      <height>20</height>
     </rect>
@@ -138,7 +138,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>150</y>
+     <y>146</y>
      <width>31</width>
      <height>16</height>
     </rect>
@@ -151,7 +151,7 @@
    <property name="geometry">
     <rect>
      <x>40</x>
-     <y>150</y>
+     <y>146</y>
      <width>61</width>
      <height>20</height>
     </rect>
@@ -253,6 +253,9 @@
      <height>20</height>
     </rect>
    </property>
+   <property name="storageMode">
+    <enum>QgsFileWidget::SaveFile</enum>
+   </property>
   </widget>
   <widget class="QPushButton" name="pbClose">
    <property name="geometry">
@@ -280,12 +283,25 @@
     <string>Help</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="pbMarkArea">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>170</y>
+     <width>91</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Mark on canvas</string>
+   </property>
+  </widget>
  </widget>
  <customwidgets>
   <customwidget>
    <class>QgsFileWidget</class>
    <extends>QWidget</extends>
-   <header>qgis.gui</header>
+   <header>qgsfilewidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
